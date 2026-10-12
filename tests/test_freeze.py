@@ -4651,3 +4651,41 @@ def test124_texture_filter_mode(t):
     ref = func(tex, pos)
 
     assert dr.allclose(res, ref)
+
+
+@pytest.test_arrays("float32, jit, shape=(*)")
+@pytest.mark.parametrize("auto_opaque", [False, True])
+def test125_empty_arrays(t, auto_opaque):
+    """
+    Empty (uninitialized) arrays in the output and in the input of a frozen
+    function. Previously, returning one aborted with ``jit_var(r0): unknown
+    variable`` (e.g. Mitsuba's ``Integrator.render(..., develop=False)``).
+    """
+    mod = sys.modules[t.__module__]
+    TensorXf = mod.TensorXf
+
+    def func(x, maybe_empty):
+        return x + 1, t(), TensorXf(), maybe_empty
+
+    frozen = dr.freeze(func, auto_opaque=auto_opaque)
+
+    for i in range(3):
+        x = dr.arange(t, 4) + i
+        res = frozen(x, t())
+        ref = func(x, t())
+        assert dr.all(res[0] == ref[0])
+        assert type(res[1]) is t and dr.width(res[1]) == 0
+        assert type(res[2]) is TensorXf and dr.width(res[2]) == 0
+        assert type(res[3]) is t and dr.width(res[3]) == 0
+    assert frozen.n_recordings == 1
+
+    # Switching an input between empty and non-empty requires a new recording
+    x = dr.arange(t, 4)
+    y = dr.arange(t, 4) * 2
+    res = frozen(x, y)
+    assert dr.all(res[3] == y)
+    assert frozen.n_recordings == 2
+
+    res = frozen(x, t())
+    assert dr.width(res[3]) == 0
+    assert frozen.n_recordings == 2

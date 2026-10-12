@@ -396,6 +396,14 @@ struct LayoutBuilder {
      */
     void bind_var(Node &n, const Node *pv, uint32_t node, uint32_t &index,
                   bool &forced) {
+        // Empty arrays (e.g. ``Float()``, or the result of a function that
+        // returns nothing) have no variable to describe
+        if (index == 0) {
+            n.vt = (uint8_t) VarType::Void;
+            n.set(NodeFlag::Empty);
+            return;
+        }
+
         VarInfo info = jit_var_info(index);
 
         if (info.type == VarType::Pointer)
@@ -849,6 +857,8 @@ static const char *var_difference(const Layout &a, const Node &va,
                                   const Layout &b, const Node &vb) {
     if (va.vt != vb.vt)
         return "the variable type changed";
+    if (va.has(NodeFlag::Empty))
+        return nullptr;
     if (va.has(NodeFlag::Literal))
         return memcmp(&a.literals[va.ref], &b.literals[vb.ref],
                       sizeof(Literal)) != 0

@@ -54,6 +54,12 @@ struct LayoutVerifier {
     /// Check the leafe node ``n`` against variable index ``index`` and bind its
     /// slot. Opaquing replaces ``index`` and sets ``forced=true``.
     void bind_var(const Node &n, uint32_t node, uint32_t &index, bool &forced) {
+        if (n.has(NodeFlag::Empty) || index == 0) {
+            if (!n.has(NodeFlag::Empty) || index != 0)
+                mismatch(node, "the array changed to or from an empty array");
+            return;
+        }
+
         VarInfo info = jit_var_info(index);
 
         if ((uint8_t) info.type != n.vt)

@@ -14,9 +14,12 @@
 /// Is one variable held by a leaf still bound to the same value?
 static bool var_equal(const Layout &out, const Node &a, const uint32_t *out_bindings,
                       const Layout &in,  const Node &b, const uint32_t *in_bindings) {
-    bool literal = a.has(NodeFlag::Literal);
-    if (a.vt != b.vt || literal != b.has(NodeFlag::Literal))
+    bool literal = a.has(NodeFlag::Literal), empty = a.has(NodeFlag::Empty);
+    if (a.vt != b.vt || literal != b.has(NodeFlag::Literal) ||
+        empty != b.has(NodeFlag::Empty))
         return false;
+    if (empty)
+        return true;
     if (literal)
         return memcmp(&out.literals[a.ref], &in.literals[b.ref], sizeof(Literal)) == 0;
     return out_bindings[a.ref] == in_bindings[b.ref];
@@ -88,7 +91,7 @@ drjit::vector<uint32_t> plan_outputs(Layout &out, const uint32_t *out_bindings,
     drjit::vector<uint32_t> outputs;
 
     auto assign = [&](const Node &v) {
-        if (v.has(NodeFlag::Literal))
+        if (v.has(NodeFlag::Literal) || v.has(NodeFlag::Empty))
             return;
         uint32_t slot = v.ref;
         if (out.slot_output[slot] == Layout::NoOutput) {
@@ -126,8 +129,10 @@ struct OutputWalker {
 
     /// Owning reference to one variable held by a leaf. Literal and undefined
     /// variables are recreated from the layout, the others are outputs of
-    /// the replay.
+    /// the replay. Empty arrays map to index 0.
     uint32_t var_value(const Node &v) {
+        if (v.has(NodeFlag::Empty))
+            return 0;
         if (v.has(NodeFlag::Literal)) {
             const Literal &l = s.literals[v.ref];
             if (l.undefined)

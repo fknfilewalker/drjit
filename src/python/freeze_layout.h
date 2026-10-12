@@ -255,7 +255,11 @@ enum class NodeFlag : uint8_t {
     Dirty        = 1 << 5,
 
     /// Node whose subtree contains a dirty leaf
-    DirtySubtree = 1 << 6
+    DirtySubtree = 1 << 6,
+
+    /// Leaf holding an empty (uninitialized) array, i.e. variable index 0.
+    /// It owns no slot and no literal, and is recreated as an empty array.
+    Empty        = 1 << 7
 };
 
 /// The Layout builder generates one Node per PyTree element in DFS order.
